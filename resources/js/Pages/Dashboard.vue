@@ -1,8 +1,8 @@
 <script setup>
-import { usePoll } from '@inertiajs/vue3';
+import { usePoll, usePrefetch, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
 const pollData = ref(null);
 const isPolling = ref(false);
@@ -20,7 +20,7 @@ const { start, stop } = usePoll(5000, {
     }
 }, {
     autoStart: false,
-    keepAlive: true // Optional: Disable throttling when tab is in background
+    keepAlive: true
 });
 
 const togglePolling = () => {
@@ -31,10 +31,22 @@ const togglePolling = () => {
         start();
     }
 };
+
+// Prefetch example
+const {lastUpdatedAt, isPrefetching, isPrefetched, flush} = usePrefetch(
+    '/users',
+    {method: 'get', data: {page: 1}},
+    {cacheFor: '1m'}
+);
+
+onMounted(() => {
+    // Programmatically prefetch users data on component mount
+    flush(); // Clear any existing cache for this route
+});
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head title="Dashboard"/>
 
     <AuthenticatedLayout>
         <template #header>
@@ -50,7 +62,8 @@ const togglePolling = () => {
                         You're logged in!
                     </div>
                     <div class="p-6">
-                        <button @click="togglePolling" class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
+                        <button @click="togglePolling"
+                                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
                             {{ isPolling ? 'Stop' : 'Start' }} Polling
                         </button>
                         <p class="mt-2">
@@ -62,6 +75,17 @@ const togglePolling = () => {
                             <p>Random Number: {{ pollData.randomNumber }}</p>
                             <p>Active Users: {{ pollData.activeUsers }}</p>
                         </div>
+                    </div>
+                    <div class="p-6 border-t">
+                        <h3 class="text-lg font-semibold mb-4">Prefetch Examples:</h3>
+                        <Link href="/users" class="text-blue-500 hover:underline" prefetch>Users (Hover to prefetch)
+                        </Link>
+                        <p class="mt-2">Prefetch status: {{ isPrefetched ? 'Prefetched' : 'Not prefetched' }}</p>
+                        <p v-if="lastUpdatedAt">Last updated: {{ new Date(lastUpdatedAt).toLocaleString() }}</p>
+                        <button @click="flush"
+                                class="mt-2 px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
+                            Clear Users Prefetch Cache
+                        </button>
                     </div>
                 </div>
             </div>
