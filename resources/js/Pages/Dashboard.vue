@@ -1,10 +1,18 @@
 <script setup>
-import { usePoll, usePrefetch, Link } from '@inertiajs/vue3';
+import { usePoll, usePrefetch, Link, Deferred } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { ref, onMounted } from 'vue';
 
-const pollData = ref(null);
+// Define props
+const props = defineProps({
+    pollData: Object,
+    userStats: {
+        type: Object,
+        default: null,
+    },
+});
+
 const isPolling = ref(false);
 
 const { start, stop } = usePoll(5000, {
@@ -86,6 +94,19 @@ onMounted(() => {
                                 class="mt-2 px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
                             Clear Users Prefetch Cache
                         </button>
+                    </div>
+                    <div class="p-6 border-t">
+                        <h3 class="text-lg font-semibold mb-4">User Statistics (Deferred):</h3>
+                        <Deferred data="userStats">
+                            <template #fallback>
+                                <div class="text-gray-500">Loading user statistics...</div>
+                            </template>
+                            <div v-if="userStats">
+                                <p>Total Users: {{ userStats.totalUsers }}</p>
+                                <p>New Users Today: {{ userStats.newUsersToday }}</p>
+                                <p>Active Users (Last Week): {{ userStats.activeUsersLastWeek }}</p>
+                            </div>
+                        </Deferred>
                     </div>
                 </div>
             </div>
