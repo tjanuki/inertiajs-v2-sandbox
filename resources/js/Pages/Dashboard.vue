@@ -2,7 +2,8 @@
 import { usePoll, usePrefetch, Link, Deferred } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { router } from '@inertiajs/vue3'
 
 // Define props
 const props = defineProps({
@@ -11,11 +12,22 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    users: {
+        type: Object,
+        default: () => ({
+            data: [],
+            current_page: 1,
+            last_page: 1,
+        }),
+    },
 });
 
 const isPolling = ref(false);
+const isLoading = ref(false);
+const userList = ref(props.users.data || []);
+const page = ref(props.users.current_page || 1);
 
-const { start, stop } = usePoll(5000, {
+const {start, stop} = usePoll(5000, {
     onStart() {
         console.log('Polling request started');
         isPolling.value = true;
@@ -48,8 +60,49 @@ const {lastUpdatedAt, isPrefetching, isPrefetched, flush} = usePrefetch(
 );
 
 onMounted(() => {
-    // Programmatically prefetch users data on component mount
     flush(); // Clear any existing cache for this route
+    window.addEventListener('scroll', handleScroll);
+});
+
+const handleScroll = () => {
+    const bottomOfWindow = document.documentElement.scrollTop + window.innerHeight === document.documentElement.offsetHeight;
+
+    if (bottomOfWindow && !isLoading.value && hasMoreUsers.value) {
+        loadMoreUsers();
+    }
+};
+
+const loadMoreUsers = () => {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+    page.value++;
+
+    router.get(
+        '/dashboard',
+        {page: page.value},
+        {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['users'],
+            onSuccess: (page) => {
+                if (page.props.users && Array.isArray(page.props.users.data)) {
+                    userList.value = [...userList.value, ...page.props.users.data];
+                }
+                isLoading.value = false;
+            },
+            onError: () => {
+                isLoading.value = false;
+                page.value--;
+            },
+        }
+    );
+};
+
+const hasMoreUsers = computed(() => {
+    // console.log('props.users', props.users);
+    // console.log('page.value', page.value);
+    return props.users && props.users.last_page ? page.value < props.users.last_page : false;
 });
 </script>
 
@@ -107,6 +160,26 @@ onMounted(() => {
                                 <p>Active Users (Last Week): {{ userStats.activeUsersLastWeek }}</p>
                             </div>
                         </Deferred>
+                    </div>
+                    <div class="p-6 border-t">
+                        <h3 class="text-lg font-semibold mb-4">User List (Infinite Scroll):</h3>
+                        <ul v-if="userList.length > 0" class="space-y-4">
+                            <li v-for="user in userList" :key="user.id" class="border p-4 rounded">
+                                <p class="font-semibold">{{ user.name }}</p>
+                                <p class="text-sm text-gray-600">{{ user.email }}</p>
+                                <p class="text-xs text-gray-500">Joined:
+                                    {{ new Date(user.created_at).toLocaleDateString() }}</p>
+                            </li>
+                        </ul>
+                        <div v-else class="text-center text-gray-600">
+                            No users found.
+                        </div>
+                        <div v-if="isLoading" class="mt-4 text-center text-gray-600">
+                            Loading more users...
+                        </div>
+                        <div v-if="!hasMoreUsers && userList.length > 0" class="mt-4 text-center text-gray-600">
+                            No more users to load.
+                        </div>
                     </div>
                 </div>
             </div>
